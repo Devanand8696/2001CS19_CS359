@@ -1,202 +1,206 @@
+"""
+Author : V.Sai Vardhan
+Roll No. : 2001CS58
+"""
 
 
-from datetime import datetime
-from hashlib import new
-start_time = datetime.now()
 
-#Help https://youtu.be/N6PBd4XdnEw
-def octant_range_names(mod=5000):
-    octant_name_id_mapping = {"1":"Internal outward interaction", "-1":"External outward interaction", "2":"External Ejection", "-2":"Internal Ejection", "3":"External inward interaction", "-3":"Internal inward interaction", "4":"Internal sweep", "-4":"External sweep"}
-    import pandas as pd
-    try:
-        data=pd.read_excel("octant_input.xlsx")
-    except FileNotFoundError:
-        print("Incorrect file name")  
+# Import all necessary libraries
+import numpy as np
+import queue                               #To use queue data types while using threads
+import time                                #Library to make the threads wait
+import threading                           #Library for threading
+from tabulate import tabulate              #Helps to print tables
+
+"""************************************************************************************************************************************************"""
+file = open("topology.txt", "r")           #File descriptor for opening the file
+N =0                                       #Varable to take in the no. of routers
+Routers =[]                                #Contains list of routers
+ind=0                                      #Index of lines in file
+Edges = []                                 #Dictionary to hold all the neigbours of a router
+RouterId ={}                               #Dictionary to store the position of a router in "Routers" list. E.g if Routers[0] ='A' , then RouterId['A'] = 0
+SQueue = {}                                #Dictinary to hold the shared queue of a router, where in all its neghbours will push their vector table
+Neighbors = {}                             #Temporrary list to take in line of edges from files
+lock = threading.Lock()                    #Initiating lock variables
+
+"""************************************************************************************************************************************************"""
+#Take the lines from file one by one and process them accordingly 
+for line in file:
+  if(ind==0):                              #First line is no. of routers. So store the value in N
+    N = int(line)
+  elif(ind==1):                            #Second line is list of routers.
+    Routers  = line.strip('\n').split(' ') #We remove the new line character at the end and the white spaces and produce a list of the routers stored in 'Routers'
+  elif line != "\n":                       #The rest of lines are stores in temporary list    
+    Edges.append(line.strip('\n'))
+
+  ind+=1
+Routers.pop()
+"""************************************************************************************************************************************************"""
+# Initiate the Queues, Router tables of all routers with cost to self being 0 and to others a large no. M= 1000000
+for i in range(len(Routers)):
+  RouterId[Routers[i]] = i
+  SQueue[Routers[i]] = queue.Queue()
+  Neighbors[Routers[i]] = []
+
+
+Table = []                                 #The list of router tables for all routers, where each entry contains the link cost and next hop
+M = 10000000
+
+
+for i in range(N):
+  List = []
+  for j in range(N):
+    if(i==j):
+      List.append([0,Routers[i]])
     else:
+      List.append([M,"NA"])
+  Table.append(List)
+"""************************************************************************************************************************************************"""
 
-        ##############################
-        #Creating the columns in the excel sheet
-        data=pd.read_excel("octant_input.xlsx")
-        data["Octant"]=""
-        data[""]=""
-        data.at[2,""]="User Input"
-        data[" "]=""
-        data.at[0," "]="Octant ID"
-        data.at[1," "]="Overall Count"
-        data.at[2," "]="Mod "+str(mod)
-        data["  "]=""
-        data["   "]=""
-        data["    "]=""
-        data["     "]=""
-        data["      "]=""
-        data["       "]=""
-        data["        "]=""
-        data["         "]=""
-        data.at[0,"  "]="1"
-        data.at[0,"   "]="-1"
-        data.at[0,"    "]="2"
-        data.at[0,"     "]="-2"
-        data.at[0,"      "]="3"
-        data.at[0,"       "]="-3"
-        data.at[0,"        "]="4"
-        data.at[0,"         "]="-4"
-        data["1"]=""
-        data["-1"]=""
-        data["2"]=""
-        data["-2"]=""
-        data["3"]=""
-        data["-3"]=""
-        data["4"]=""
-        data["-4"]=""
-        data["          "]=""
-        data.at[0,"          "]="Rank 1 Octant ID"
-        data["           "]=""
-        data.at[0,"           "]="Rank 1 Octant Name"
-        values=[1,-1,2,-2,3,-3,4,-4]
-        s=1
-        for i in values:
-            data.at[0,str(i)]="Rank"+" "+str(s)
-            s+=1
-        data.at[0,"1"]="Rank 1"
-        lastval=data.index[-1]
-        count1=0
-        countm1=0
-        count2=0
-        countm2=0
-        count3=0
-        countm3=0
-        count4=0
-        countm4=0
-        multiply=lastval//mod
-        counterforeachoctant=2
-        a=0
-        b=0
-        c=0
-        d=0
-        e=0
-        f=0
-        g=0
-        h=0
-        for j in range(1,multiply+2,1):
-            if(j==1):
-                data.at[j+2," "]="0000"+"-"+str(mod-1)
-            else:
-                if(j<=multiply):
-                    num=str(mod*(j-1))+"-"+str(mod*j - 1)
-                    data.at[j+2," "]=num
-                else:
-                    num=str(mod*(j-1))+"-"+str(lastval)
-                    data.at[j+2," "]=num
-        rank1count=[0,0,0,0,0,0,0,0]
-        for i in range(0,lastval+1,1):
-            u=data["U'=U-U Avg"][i]
-            v=data["V'=V-V Avg"][i]
-            w=data["W'=W-W Avg"][i]
-            if u>0:
-                if v>0:
-                    if w>0:
-                        
-                        data.at[i,'Octant']=1
-                    else:
-                        
-                        data.at[i,'Octant']=-1
-                else:
-                    if w>0:
-                        
-                        data.at[i,'Octant']=4
-                    else:
-                        
-                        data.at[i,'Octant']=-4
-            else:
-                if v>0:
-                    if w>0:
-                        data.at[i,'Octant']=2
-                    else:
-                        data.at[i,'Octant']=-2
-                else:
-                    if w>0:
-                        data.at[i,'Octant']=3
-                    else: 
-                        data.at[i,'Octant']=-3                     
-            if((data["Octant"][i])==1):
-                count1+=1
-            elif((data["Octant"][i])==-1):
-                countm1+=1
-            elif((data["Octant"][i])==2):
-                count2+=1
-            elif((data["Octant"][i])==-2):
-                countm2+=1   
-            elif((data["Octant"][i])==3):
-                count3+=1
-            elif((data["Octant"][i])==-3):
-                countm3+=1
-            elif((data["Octant"][i])==4):
-                count4+=1
-            elif((data["Octant"][i])==-4):
-                countm4+=1
-            if(((i!=0)and((i+1)%mod==0))or(i==lastval)):
-                data.at[counterforeachoctant+1,"  "]=count1-a
-                data.at[counterforeachoctant+1,"   "]=countm1-b
-                data.at[counterforeachoctant+1,"    "]=count2-c
-                data.at[counterforeachoctant+1,"     "]=countm2-d
-                data.at[counterforeachoctant+1,"      "]=count3-e
-                data.at[counterforeachoctant+1,"       "]=countm3-f
-                data.at[counterforeachoctant+1,"        "]=count4-g
-                data.at[counterforeachoctant+1,"         "]=countm4-h
-                counts=[count1-a,countm1-b,count2-c,countm2-d,count3-e,countm3-f,count4-g,countm4-h]
-                ncounts=sorted(counts)
-                for i in range(0,8,1):
-                    for j in range(0,8,1):
-                        if (ncounts[i]==counts[j]):
-                            data.at[counterforeachoctant+1,str(values[j])]=8-i
-                            data.at[counterforeachoctant+1,"          "]=values[j]
-                            data.at[counterforeachoctant+1,"           "]=octant_name_id_mapping[str(values[j])]
-                            if (i==7):
-                                rank1count[j]=rank1count[j]+1
-                a,b,c,d,e,f,g,h=count1,countm1,count2,countm2,count3,countm3,count4,countm4
-                counterforeachoctant+=1
-            else:
-                continue    
-        data.at[1,"  "]=count1
-        data.at[1,"   "]=countm1
-        data.at[1,"    "]=count2
-        data.at[1,"     "]=countm2
-        data.at[1,"      "]=count3
-        data.at[1,"       "]=countm3
-        data.at[1,"        "]=count4
-        data.at[1,"         "]=countm4
-        ovcounts=[count1,countm1,count2,countm2,count3,countm3,count4,countm4]    
-        novcounts=sorted(ovcounts)
-        for i in range(0,8,1):
-            for j in range(0,8,1):
-                if (novcounts[i]==ovcounts[j]):
-                    data.at[1,str(values[j])]=8-i
-                    data.at[1,"          "]=values[j]
-                    data.at[1,"           "]=octant_name_id_mapping[str(values[j])]
-        newpos=7+(lastval//mod)
-        data.at[newpos,"  "]="Octant ID"
-        data.at[newpos,"   "]="Octant Name"
-        data.at[newpos,"    "]="Count of Rank 1 Mod Values"
-        for i in range(0,8,1):
-            data.at[newpos+1+i,"  "]=values[i]
-            data.at[newpos+1+i,"   "]=octant_name_id_mapping[str(values[i])]
-            data.at[newpos+1+i,"    "]=rank1count[i]        
-        data.to_excel('octant_output.xlsx',index=False)
+#Process the edges, and fill the router tables accordingly
+for e in Edges:
+  Edge = e.split(' ')
+  
+  u = Edge[0]
+  v = Edge[1]
+  w = Edge[2]
+  Neighbors[u].append(v)
+  Neighbors[v].append(u)
+    
+  Table[RouterId[u]][RouterId[v]] = [int(w),v]
+  Table[RouterId[v]][RouterId[u]] = [int(w),u]
+  
+  
+"""************************************************************************************************************************************************"""
+#Helper function to implement Link state routing protocol 
+def Compute(router,iter):              
+  
+  R = RouterId[router]
+  while iter<=N:                                #Run for the protoco for as many times as the no. of nodes.
 
-from platform import python_version
-ver = python_version()
+    Cost ={}                                    # Cost is a dictionary which stores the routing tables of all the nodes in the network
+    for i in Routers:
+      Cost[i] ={}
 
-if ver == "3.8.10":
-    print("Correct Version Installed")
-else:
-    print("Please install 3.8.10. Instruction are present in the GitHub Repo/Webmail. Url: https://pastebin.com/nvibxmjw")
+    Cost[router] = Table[R]
+    
+    
+    
+    FwdTable = (Table[R],router)               #We forward the current router's tables to all the routers in the network
+
+    for i in range(N):
+      if(R!=i):
+        SQueue[Routers[i]].put(FwdTable)
+      
+    
+    
+    for i in range(N-1):                      #We wait till we get response from all the remainig routers.Hence the loop is ran for N-1 times.
+      response = SQueue[router].get()      
+      Cost[response[1]] = response[0]
+        
+    
+    
+    
+    
+
+    Used = [False]*N
+    Updated = [False]*N
+    
+    Used[R] = True
+    Q = queue.Queue()                         #Queue contains all the current routers whose shortest path hasn't been calculated yet in other words those who haven't entered the Dijkstra Algorithm.
+    Q.put(R)
+    while not Q.empty():
+    
+      H = Q.get()                             #Dijkstra Algorithm
+      
+      Used[H]=True
+      Next = -1
+      MinCost = 100000000000
+      for k in Neighbors[Routers[H]]:
+        
+        if not Used[RouterId[k]]:
+          X = Table[R][H][0]+Cost[Routers[H]][RouterId[k]][0]
+          if(Table[R][RouterId[k]][0]>(X)):
+            Updated[RouterId[k]] =True
+            Table[R][RouterId[k]][0] = X
+            Table[R][RouterId[k]][1] = Routers[H]
+          
+          if(MinCost>Table[R][RouterId[k]][0]):
+            Next = RouterId[k]
+            MinCost = Table[R][RouterId[k]][0]
+
+      if(Next!=-1):
+        Q.put(Next)
+        Used[Next]= True 
+
+    
+    
+    Data =[]                                                                 #Make a list of lists containg the router table entries, inorder to print in tabulate format
+    for j in range(N):
+      F  = str(Table[R][j][0])
+      if(F=="10000000"):
+        F="INF"
+      if Updated[j]:
+        F = F+"*"
+
+      item  = [Routers[j],F,Table[r][j][1]]
+      Data.append(item)
+
+    lock.acquire()                                                           #Since we are printing multiple lines, we need to make sure these are atomic i.e no other router prints in between. Hence we acquire a lock.
+      
+    print("---------------------------------------------------------------------")       
+    print("Routing Table of " + str(router) + " after iteration " + str(iter) +" :")    
+    print(tabulate(Data,headers= ["Router","Link Cost","Next Hop"],tablefmt="outline"))  
+        
+    print("")                                                                #Make the router wait for 2 secs before forwarding again
+    time.sleep(1)                                    
+    print("Router " +str(router) + " waiting for 1 sec")
+    time.sleep(1)
+    print("Router " +str(router) + " waiting for 2 secs")
+    if(iter!=(N)):
+      print("Forwarding Router table of Router "+str(router))
+    else:
+      print("Terminating routing protocol for router " + str(router))
+    lock.release()                                                           #Release the lock
+      
+    iter+=1
+
+"""************************************************************************************************************************************************"""
+
+# Print initial routing tables for all routers 
+for r in range(N):
+  router  = Routers[r]
+  print("---------------------------------------------------------------------")       
+  print("Routing Table of " + str(router) + " intially"+" :")
+  
+  Data =[]
+  for j in range(N):
+    F  = str(Table[r][j][0])
+    if(F=="10000000"):
+      F="INF"
+    item  = [Routers[j],F,Table[r][j][1]]
+    Data.append(item)
+
+  print(tabulate(Data,headers= ["Router","Link Cost","Next Hop"],tablefmt="outline"))  
+      
+  
+#List to keep all threads created
+Threads = []
+
+for i in range(N):
+  Thrd  = threading.Thread(target = Compute,args = (Routers[i],1,))          #Create a new thread with target function 'Compute' and for each router
+  Threads.append(Thrd)
+
+for i in range(N):
+  Threads[i].start()                                                         #Begin execution of each thread
+
+for i in range(N):  
+  Threads[i].join()
 
 
-mod=5000 
-octant_range_names(mod)
+  
 
 
 
-#This shall be the last lines of the code.
-end_time = datetime.now()
-print('Duration of Program Execution: {}'.format(end_time - start_time))
+
+
